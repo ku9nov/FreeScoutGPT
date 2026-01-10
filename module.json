@@ -1,8 +1,8 @@
 {
     "name": "FreeScoutGPT",
     "alias": "freescoutgpt",
-    "description": "Module for requests to ChatGPT with support for multiple models. v1.0.31: Fix gpt-5 logic typo. v1.0.30 adds gpt-5.",
-    "version": "1.0.31",
+    "description": "Module for requests to ChatGPT with support for multiple models. v1.0.32: Fix gpt-5.1 responses api results, fix empty articles error in PHP 8.x",
+    "version": "1.0.32",
     "detailsUrl": "https://github.com/presswizards/FreeScoutGPT",
     "img": "https://raw.githubusercontent.com/presswizards/FreeScoutGPT/refs/heads/main/FreeScoutGPT-Logo.jpg",
     "author": "Press Wizards",
