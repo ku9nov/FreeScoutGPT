@@ -155,7 +155,7 @@ class FreeScoutGPTController extends Controller
         // If Responses API is enabled and is not an edit prompt ajax, use it instead of Chat Completions
         $ajax_cmd = $request->get("command");
         if (!empty($settings->use_responses_api) && empty($ajax_cmd)) {
-            $articleUrls = array_filter(array_map('trim', preg_split('/\r?\n/', $settings->article_urls)));
+            $articleUrls = array_filter(array_map('trim', preg_split('/\r?\n/', $settings->article_urls ?? '')));
             $articles = [];
             $client = new \GuzzleHttp\Client(['timeout' => 20]);
             foreach ($articleUrls as $url) {
