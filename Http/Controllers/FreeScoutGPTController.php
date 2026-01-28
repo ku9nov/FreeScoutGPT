@@ -13,6 +13,14 @@ use Modules\FreeScoutGPT\Entities\GPTSettings;
 
 class FreeScoutGPTController extends Controller
 {
+    private function stripHtmlToText($html)
+    {
+        if (!is_string($html)) {
+            return '';
+        }
+        return trim(strip_tags($html));
+    }
+
 
     /**
      * Display a listing of the resource.
@@ -236,7 +244,8 @@ class FreeScoutGPTController extends Controller
                 }
             }
             $context = "";
-            if ($settings->client_data_enabled) {
+        $skipClientData = $request->boolean('skip_client_data');
+        if ($settings->client_data_enabled && !$skipClientData) {
                 $customerName = $request->get("customer_name");
                 $customerEmail = $request->get("customer_email");
                 $conversationSubject = $request->get("conversation_subject");
@@ -345,7 +354,7 @@ class FreeScoutGPTController extends Controller
             'content' => $command ?? $settings->start_message
         ]];
 
-        if ($settings->client_data_enabled) {
+        if ($settings->client_data_enabled && !$skipClientData) {
             $customerName = $request->get("customer_name");
             $customerEmail = $request->get("customer_email");
             $conversationSubject = $request->get("conversation_subject");
@@ -423,6 +432,7 @@ class FreeScoutGPTController extends Controller
             $settings['api_key'] = "";
             $settings['token_limit'] = "";
             $settings['start_message'] = "";
+            $settings['message_edit_prompt'] = "";
             $settings['enabled'] = false;
             $settings['model'] = "";
             $settings['client_data_enabled'] = false;
@@ -443,6 +453,7 @@ class FreeScoutGPTController extends Controller
                 'enabled' => isset($_POST['gpt_enabled']),
                 'token_limit' => $request->get('token_limit'),
                 'start_message' => $request->get('start_message'),
+                'message_edit_prompt' => $request->get('message_edit_prompt'),
                 'model' => $request->get('model'),
                 'client_data_enabled' => isset($_POST['show_client_data_enabled']),
                 'use_responses_api' => isset($_POST['use_responses_api']),
@@ -452,6 +463,72 @@ class FreeScoutGPTController extends Controller
         );
         \Session::flash('flash_success_floating', __('Settings updated'));
         return redirect()->route('freescoutgpt.settings', ['mailbox_id' => $mailbox_id]);
+    }
+
+    public function editDraft(Request $request)
+    {
+        if (Auth::user() === null) return Response::json(["error" => "Unauthorized"], 401);
+
+        $mailboxId = $request->get('mailbox_id');
+        if (empty($mailboxId)) {
+            return Response::json(["error" => "Missing mailbox_id"], 422);
+        }
+        $settings = GPTSettings::find($mailboxId);
+        if (empty($settings) || !$settings->enabled) {
+            return Response::json(["error" => "Disabled"], 403);
+        }
+
+        $draftText = (string)$request->get('text', '');
+        $draftText = trim($draftText);
+        if ($draftText === '') {
+            return Response::json(["error" => "Empty text"], 422);
+        }
+
+        $prompt = $settings->message_edit_prompt;
+        if (!is_string($prompt) || trim($prompt) === '') {
+            $prompt = "You are an assistant that edits an already-written customer support reply.\n"
+                . "Fix grammar, spelling, and clarity. Improve tone to be friendly, concise, and professional.\n"
+                . "Do not add new facts. Do not change meaning. Keep the same language as the input.\n"
+                . "Return only the edited message text.";
+        }
+
+        $openaiClient = \Tectalic\OpenAi\Manager::build(new \GuzzleHttp\Client(
+            [
+                'timeout' => config('app.curl_timeout'),
+                'connect_timeout' => config('app.curl_connect_timeout'),
+                'proxy' => config('app.proxy'),
+            ]
+        ), new \Tectalic\OpenAi\Authentication($settings->api_key));
+
+        // Determine role based on model
+        if (strpos($settings->model, 'o1') !== false || strpos($settings->model, 'o3') !== false) {
+            $req_role = 'user';
+        } else {
+            $req_role = 'developer';
+        }
+
+        $messages = [
+            [
+                'role' => $req_role,
+                'content' => $prompt,
+            ],
+            [
+                'role' => 'user',
+                'content' => $draftText,
+            ],
+        ];
+
+        $response = $openaiClient->chatCompletions()->create(
+            new \Tectalic\OpenAi\Models\ChatCompletions\CreateRequest([
+                'model'  => $settings->model,
+                'messages' => $messages,
+                'max_output_tokens' => (integer) $settings->token_limit
+            ])
+        )->toModel();
+
+        return Response::json([
+            'answer' => $response->choices[0]->message->content
+        ], 200);
     }
 
     public function checkIsEnabled(Request $request)

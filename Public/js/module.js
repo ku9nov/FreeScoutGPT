@@ -3,6 +3,7 @@ function freescoutgptInit() {
         // Add event listeners
         $(document).on("click", ".chatgpt-get", generateAnswer);
         $(document).on("click", ".gptbutton", showModifyPromptAlert);
+        $(document).on("click", ".gpteditbutton", editDraftMessage);
         $(document).on("click", ".gpt-nav-previous", previousAnswer);
         $(document).on("click", ".gpt-nav-next", nextAnswer);
         $(document).on("click", ".gpt-copy-icon", copyAnswer);
@@ -18,6 +19,8 @@ function freescoutgptInit() {
                 success: function (response, status) {
                     if (!response.enabled) {
                         $(".chatgpt-get").remove();
+                        $(".gptbutton").remove();
+                        $(".gpteditbutton").remove();
                     }
                 }
             });
@@ -42,6 +45,11 @@ function freescoutgptInit() {
                 '<i class="fa-solid fa-robot"></i>' +
 	    	'</button>'
             );
+
+            // Add draft editing button to reply form
+            $(".conv-reply-body .note-toolbar > .note-btn-group:first").append('<button type="button" class="note-btn btn btn-default btn-sm gpteditbutton" tabindex="-1" title aria-label="Edit Draft" data-original-title="Edit Draft">' +
+                '<i class="fa-solid fa-pen-to-square"></i>' +
+            '</button>');
         }
 	});
 }
@@ -175,6 +183,74 @@ async function injectGptAnswer(){
     }, true, function() {
         $(".gptbutton").removeClass("fa-beat-fade");
         showFloatingAlert('error', Lang.get("messages.ajax_error"));
+    });
+}
+
+function getReplyDraftText() {
+    if (!$('#body').length || typeof $('#body').summernote !== 'function') {
+        return '';
+    }
+    const html = $('#body').summernote('code') || '';
+    // Convert HTML to plain text for the editing request.
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+function setReplyDraftText(text) {
+    if (!$('#body').length || typeof $('#body').summernote !== 'function') {
+        return;
+    }
+    const safeText = (text || '').toString();
+    const html = safeText.replace(/\n/g, "<br>");
+    $('#body').summernote('code', html);
+}
+
+function editDraftMessage(e) {
+    e.preventDefault();
+
+    const mailbox_id = $("body").attr("data-mailbox_id");
+    const text = getReplyDraftText();
+    if (!text) {
+        showFloatingAlert('error', freescoutGPTData.nothingToEdit || 'There is no text to edit');
+        return;
+    }
+
+    $(".gpteditbutton i").addClass("fa-beat-fade");
+
+    const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfTokenEl ? csrfTokenEl.content : '';
+
+    $.ajax({
+        url: '/freescoutgpt/edit-draft',
+        method: 'POST',
+        dataType: 'json',
+        headers: csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {},
+        data: {
+            mailbox_id: mailbox_id,
+            text: text,
+            skip_client_data: 1
+        },
+        success: function(response) {
+            setReplyDraftText(response.answer);
+            $(".gpteditbutton i").removeClass("fa-beat-fade");
+        },
+        error: function(xhr) {
+            $(".gpteditbutton i").removeClass("fa-beat-fade");
+            if (xhr && xhr.status === 419) {
+                showFloatingAlert('error', 'Session expired or CSRF token mismatch. Please refresh the page and try again.');
+                return;
+            }
+            if (xhr && xhr.status === 403) {
+                showFloatingAlert('error', freescoutGPTData.moduleDisabled || 'FreeScoutGPT is disabled for this mailbox');
+                return;
+            }
+            if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
+                showFloatingAlert('error', xhr.responseJSON.error);
+                return;
+            }
+            showFloatingAlert('error', Lang.get("messages.ajax_error"));
+        }
     });
 }
 
