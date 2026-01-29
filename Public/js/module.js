@@ -202,7 +202,13 @@ function setReplyDraftText(text) {
         return;
     }
     const safeText = (text || '').toString();
-    const html = safeText.replace(/\n/g, "<br>");
+    const escaped = safeText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    const html = escaped.replace(/\n/g, "<br>");
     $('#body').summernote('code', html);
 }
 
@@ -232,6 +238,11 @@ function editDraftMessage(e) {
             skip_client_data: 1
         },
         success: function(response) {
+            if (!response || typeof response.answer === 'undefined') {
+                showFloatingAlert('error', 'Unexpected response from server');
+                $(".gpteditbutton i").removeClass("fa-beat-fade");
+                return;
+            }
             setReplyDraftText(response.answer);
             $(".gpteditbutton i").removeClass("fa-beat-fade");
         },

@@ -159,7 +159,12 @@ class FreeScoutGPTController extends Controller
     {
         if (Auth::user() === null) return Response::json(["error" => "Unauthorized"], 401);
         $settings = GPTSettings::findOrFail($request->get("mailbox_id"));
-
+        $skipClientData = filter_var(
+            $request->get('skip_client_data'),
+            FILTER_VALIDATE_BOOLEAN,
+            FILTER_NULL_ON_FAILURE
+        ) === true;
+        
         // If Responses API is enabled and is not an edit prompt ajax, use it instead of Chat Completions
         $ajax_cmd = $request->get("command");
         if (!empty($settings->use_responses_api) && empty($ajax_cmd)) {
@@ -244,8 +249,7 @@ class FreeScoutGPTController extends Controller
                 }
             }
             $context = "";
-        $skipClientData = $request->boolean('skip_client_data');
-        if ($settings->client_data_enabled && !$skipClientData) {
+            if ($settings->client_data_enabled && !$skipClientData) {
                 $customerName = $request->get("customer_name");
                 $customerEmail = $request->get("customer_email");
                 $conversationSubject = $request->get("conversation_subject");
