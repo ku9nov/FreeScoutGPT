@@ -255,7 +255,7 @@ class FreeScoutGPTController extends Controller
         
         // If Responses API is enabled, use it instead of Chat Completions
         if (!empty($settings->use_responses_api)) {
-            $articleUrls = array_filter(array_map('trim', preg_split('/\r?\n/', $settings->article_urls)));
+            $articleUrls = array_filter(array_map('trim', preg_split('/\r?\n/', $settings->article_urls ?? '')));
             $fetchResult = $this->fetchArticlesContext($articleUrls, $settings, $request);
             if (!empty($fetchResult['error'])) {
                 return Response::json([
