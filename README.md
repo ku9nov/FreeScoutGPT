@@ -7,6 +7,9 @@ This repository contains the FreeScout + ChatGPT Integration Module, which conne
 <p><a href="https://www.buymeacoffee.com/robwpdev" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a><br>
 If this module saves you time, helps your clients, or helps you do better work, I’d appreciate it.</p>
 
+## Infomaniak API Support
+- This infomaniak branch adds support for the Infomaniak Chat Completions API.
+
 ## Newest Responses API Features
 - Adds an option to use the newest OpenAI Responses API. According to OpenAI: "OpenAI’s new Responses API is built for creating powerful AI agents, going beyond the conversational scope of the Chat Completions API. It’s more capable and agent-oriented, making it ideal for complex, multi-step tasks."
 - Adds the ability to parse external knowledge base articles, and provide very specific answers based on those articles, and be able to reference and provide links to those articles, boosting the quality and raising the limits of comprehensiveness.
@@ -31,27 +34,6 @@ To use this module, you will need an OpenAI API key, which can be obtained from 
 6. On a conversation page, click the drop-down in the upper right near the message time and choose "Generate answer (GPT)".
 7. Then you can copy that answer, click Reply, and paste it into your message, and edit/polish it as desired.
 8. Also, on the Reply screen, there is an Edit Prompt button, which you can use to rework the prompt and customize it for this reply, and then submit it to generate a reply using the additional information entered. Note that this prompt is not saved, it is unique to this reply only. [Note: this method does not yet use the new Responses API options.]
-
-## Changelog
-v1.0.30: Added Infomaniak API option for Switzerland privacy protection.
-...
-v1.0.28: Adds newlines to reply button injected answers.
-
-v1.0.27: Fixes max_completion_tokens error when using Responses API
-
-v1.0.26: Adds better settings checks to prevent "Undefined array key" errors if DB migrations were not completed during the module update.
-
-v1.0.25: Adds new OpenAI Responses API settings: Enable/Disable, Articles text area, and Responses Prompt. Disabling will ensure it uses the current Chat Completions API calls. A big thanks to Lewis Downey for sponsoring the Responses API development and testing.
-
-v1.0.24: No longer unintentionally filters out the new gpt-4.1 models from the Settings model drop-down, which were released April 14, 2025. Cheaper, faster, smarter, I'd recommend using gpt-4.1 over gpt-4o now. ( See: https://openai.com/index/gpt-4-1/ )
-
-v1.0.23: The OpenAI models drop-down on the Settings page is dynamically populated based on the chat completion models available to your API key.
-
-v1.0.22: Change prompt roles based on which model is being used, reasoning models don't support system or admin roles.
-
-v1.0.21: Added auto-update code similar to native modules, and FreeScout was updated to support renaming the folders if need be. 
-
-v1.0.20: First release under new forked version, fixed Javascript errors, removed old update code, fixed Reply edit prompt button.
 
 ## Helpful Screenshots
 

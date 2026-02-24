@@ -1,10 +1,10 @@
 {
     "name": "FreeScoutGPT",
     "alias": "freescoutgpt",
-    "description": "Module for requests to ChatGPT with support for multiple models. v1.0.30 adds new Infomaniak API option implementation.",
-    "version": "1.0.30",
+    "description": "Module for requests to ChatGPT with support for multiple models. v1.0.31 fixes Infomaniak API integration issues.",
+    "version": "1.0.31",
     "detailsUrl": "https://github.com/presswizards/FreeScoutGPT",
-    "img": "https://raw.githubusercontent.com/presswizards/FreeScoutGPT/refs/heads/main/FreeScoutGPT-Logo.jpg",
+    "img": "https://raw.githubusercontent.com/presswizards/FreeScoutGPT/refs/heads/infomaniak/infomaniak-logo.jpg",
     "author": "Press Wizards",
     "authorUrl": "https://presswizards.com/",
     "requiredAppVersion": "1.8",
@@ -20,7 +20,7 @@
         "start.php"
     ],
     "requires": [],
-    "latestVersionUrl": "https://raw.githubusercontent.com/presswizards/FreeScoutGPT/refs/heads/main/module.json",
-    "latestVersionZipUrl": "https://github.com/presswizards/FreeScoutGPT/archive/refs/heads/main.zip",
-    "changelogUrl": "https://github.com/presswizards/FreeScoutGPT/blob/main/changelog.txt"
+    "latestVersionUrl": "https://raw.githubusercontent.com/presswizards/FreeScoutGPT/refs/heads/infomaniak/module.json",
+    "latestVersionZipUrl": "https://github.com/presswizards/FreeScoutGPT/archive/refs/heads/infomaniak/main.zip",
+    "changelogUrl": "https://github.com/presswizards/FreeScoutGPT/blob/infomaniak/changelog.txt"
 }

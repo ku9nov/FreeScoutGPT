@@ -1,3 +1,8 @@
+v1.0.31
+<ul><li>
+Fixes Infomaniak Settings page to get product ID and models
+</li></ul>
+
 v1.0.30
 <ul><li>
 Adds Infomaniak Chat Completion API option for Switzerland privacy protection.
