@@ -1,11 +1,23 @@
-![FreeScout ChatGPT Integration Module](https://platform.theverge.com/wp-content/uploads/sites/2/2025/02/openai-new-logo_f252fc.png?quality=75&strip=all&crop=7.8125%2C0%2C84.375%2C100&w=300 "ChatGPT Logo")
+![FreeScout GPT Integration Module](https://platform.theverge.com/wp-content/uploads/sites/2/2025/02/openai-new-logo_f252fc.png?quality=75&strip=all&crop=7.8125%2C0%2C84.375%2C100&w=300 "ChatGPT Logo")
 
-# FreeScout ChatGPT Integration Module (FreeScout GPT)
+# FreeScout OpenAI GPT Integration Module (FreeScout GPT)
 
-This repository contains the FreeScout + ChatGPT Integration Module, which connects FreeScout with the powerful language models of ChatGPT by OpenAI via their API using your own API key. This integration enables the generation of AI-based responses for incoming messages, providing a more efficient and intelligent support system for your FreeScout team.
+This repository contains the FreeScout + OpenAI GPT Integration Module, which connects FreeScout with the powerful large language models (LLMs) of OpenAI via their API using your own API key. This integration enables the generation of AI-based responses for incoming messages, providing a more efficient and intelligent support system for your FreeScout team.
 
-<p><a href="https://www.buymeacoffee.com/robwpdev" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a><br>
-If this module saves you time, helps your clients, or helps you do better work, I’d appreciate it.</p>
+## FreeScout GPT Pro now available
+
+<a href="https://5starplugins.com/freescout-gpt-pro/" target="_blank" style="float:right;"><img src="https://github.com/user-attachments/assets/b501fec8-2daa-4075-a00e-e7be243219a7" width="200"></a>
+> - Knowledge Base Integration with AI Embeddings
+> - Saved Replies Integration with AI Embeddings
+> - Web Pages Cached with AI Embeddings
+> - Auto-Generate Email Responses
+> - Content-Specific Prompt
+> - One-Click Insert Into Reply
+> - AI Edit options for spelling, length, tone
+> - World-Class Support from the U.S.
+> - See The Screenshots
+> <a href="https://5starplugins.com/freescout-gpt-pro/" target="_blank"><strong>FreeScout GPT Pro Details and Screenshots</strong></a>
+
 
 ## Infomaniak API Support
 - This infomaniak branch adds support for the Infomaniak Chat Completions API.

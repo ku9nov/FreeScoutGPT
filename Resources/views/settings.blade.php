@@ -5,8 +5,8 @@
 @section('body_attrs')@parent data-mailbox_id="{{ $mailbox->id }}"@endsection
 
 @section('sidebar')
-    @include('partials/sidebar_menu_toggle')
-    @include('mailboxes/sidebar_menu')
+	@include('partials/sidebar_menu_toggle')
+	@include('mailboxes/sidebar_menu')
 @endsection
 
 @section('content')
@@ -232,6 +232,6 @@ https://example.com/article2">{{ $settings['article_urls'] ?? '' }}</textarea>
 @endsection
 
 @section('body_bottom')
-    @parent
+	@parent
 
 @endsection

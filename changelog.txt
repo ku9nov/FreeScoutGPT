@@ -1,54 +1,27 @@
-v1.0.31
-<ul><li>
-Fixes Infomaniak Settings page to get product ID and models
-</li></ul>
+v1.0.31: Adds Infomaniak Chat Completion API option for Switzerland privacy protection. Fixes Infomaniak Settings page to get product ID and models.
 
-v1.0.30
-<ul><li>
-Adds Infomaniak Chat Completion API option for Switzerland privacy protection.
-</li></ul>
+v1.0.32: Fix gpt-5.1 responses api results, fix empty articles error in PHP 8.x
 
-v1.0.28
-<ul><li>
-Adds newlines to reply button injected answers.
-</li></ul>
+v1.0.31: Fix gpt-5 logic typo
 
-v1.0.27
-<ul><li>
-Fixes max_completion_tokens error when using Responses API
-</li></ul>
+v1.0.30: Add gpt-5
 
-v1.0.26
-<ul><li>
-Adds better settings checks to prevent "Undefined array key" errors if DB migrations were not completed during the module update.
-</li></ul>
+v1.0.29: FreeScout GPT Pro module now available - try it out today. See the Settings page for details.
 
-v1.0.25
-<ul><li>
-Adds new OpenAI Responses API settings: Enable/Disable, Articles text area, and Responses Prompt. Disabling will ensure it uses the current Chat Completions API calls. A big thanks to Lewis Downey for sponsoring the Responses API development and testing.
-</li></ul>
+v1.0.28: Adds newlines to reply button injected answers.
 
-v1.0.24.1
-  <ul><li>
-  Fix Not null violation: 7 ERROR:  column "chatgpt" of relation "threads" contains null values
-  </li></ul>
+v1.0.27: Fixes max_completion_tokens error when using Responses API
 
-v1.0.24
-  <ul><li>
-  Fix so it no longer filters out models gpt-4.1* from being listed as available in the module settings drop-down.
-  </li></ul>
+v1.0.26: Adds better settings checks to prevent "Undefined array key" errors if DB migrations were not completed during the module update.
 
-v1.0.23
-  <ul><li>
-  Add dynamic loading of available models based on the OpenAI API key entered, filtering out non-chat-completion models like audio or visual, real-time, etc, as well as old and more expensive models like gpt-3.5 etc.
-  </li></ul>
+v1.0.25: Adds new OpenAI Responses API settings: Enable/Disable, Articles text area, and Responses Prompt. Disabling will ensure it uses the current Chat Completions API calls. A big thanks to Lewis Downey for sponsoring the Responses API development and testing.
 
-v1.0.22
-  <ul><li>
-  Don't filter out o1 and o3* models from the settings drop-down. Adjust roles used when submitting system prompt to work with reasoning models.
-  </li></ul>
+v1.0.24.1: Fix Not null violation: 7 ERROR:  column "chatgpt" of relation "threads" contains null values
 
-v1.0.21
-  <ul><li>
-  Fix JS issues, rename and clean up codebase, I think it's working again. Add module versioning support, and FreeScout added support for updates from remote URLs using module.json version.
-  </li></ul>
+v1.0.24: Fix so it no longer filters out models gpt-4.1* from being listed as available in the module settings drop-down.
+
+v1.0.23: Add dynamic loading of available models based on the OpenAI API key entered, filtering out non-chat-completion models like audio or visual, real-time, etc, as well as old and more expensive models like gpt-3.5 etc.
+
+v1.0.22: Don't filter out o1 and o3* models from the settings drop-down. Adjust roles used when submitting system prompt to work with reasoning models.
+
+v1.0.21: Fix JS issues, rename and clean up codebase, I think it's working again. Add module versioning support, and FreeScout added support for updates from remote URLs using module.json version.

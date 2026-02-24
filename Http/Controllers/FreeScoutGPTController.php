@@ -111,7 +111,13 @@ class FreeScoutGPTController extends Controller
                         return false;
                     }
                 }
-                if (strpos($model['id'], 'gpt-4o') !== false || strpos($model['id'], 'gpt-4.5') !== false || strpos($model['id'], 'gpt-4.1') !== false || strpos($model['id'], 'gpt-5') !== false ) {
+
+                if (
+                    strpos($model['id'], 'gpt-4o') !== false ||
+                    strpos($model['id'], 'gpt-4.5') !== false ||
+                    strpos($model['id'], 'gpt-4.1') !== false ||
+                    strpos($model['id'], 'gpt-5') !== false
+                ) {
                     return true;
                 }
 
@@ -334,7 +340,7 @@ class FreeScoutGPTController extends Controller
                 'query' => $userQuery,
                 'answer' => $answerText
             ], 200);
-        }
+        } // End of Non-Edit-Prompt & Responses API Call
 
         // Infomaniak API: use if enabled, before OpenAI
         if (!empty($settings->infomaniak_enabled)) {
