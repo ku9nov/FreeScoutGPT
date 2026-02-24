@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 3000);
     });
 
+    // ===================================================================
+    // OpenAI Models Fetch
+    // ===================================================================
     function fetchModels(apiKey) {
         if (!apiKey) return;
 
@@ -54,16 +57,21 @@ document.addEventListener("DOMContentLoaded", function () {
         fetchModels(this.value);
     });
 
-    // --- BEGIN Infomaniak/Responses API UI logic ---
+    // ===================================================================
+    // Infomaniak/Responses API UI Toggle Logic
+    // ===================================================================
     const responsesApiCheckbox = document.querySelector("input[name='use_responses_api']");
     const articleUrlsGroup = document.getElementById("article-urls-group");
     const responsesApiPromptGroup = document.querySelector("textarea[name='responses_api_prompt']")?.closest('.form-group');
     const infomaniakCheckbox = document.querySelector("input[name='infomaniak_enabled']");
+    const infomaniakApiKeyInput = document.querySelector("input[name='infomaniak_api_key']");
+    const infomaniakProductIdSelect = document.getElementById("infomaniak_product_id_select");
+    const infomaniakModelSelect = document.getElementById("infomaniak_model");
     const infomaniakApiPromptGroup = document.querySelector("textarea[name='infomaniak_api_prompt']")?.closest('.form-group');
     const infomaniakFields = [
-        document.querySelector("input[name='infomaniak_api_key']")?.closest('.form-group'),
-        document.getElementById("infomaniak_product_id_select")?.closest('.form-group'),
-        document.getElementById("infomaniak_model")?.closest('.form-group'),
+        infomaniakApiKeyInput?.closest('.form-group'),
+        infomaniakProductIdSelect?.closest('.form-group'),
+        infomaniakModelSelect?.closest('.form-group'),
         infomaniakApiPromptGroup
     ];
 
@@ -83,7 +91,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const infomaniakNow = infomaniakCheckbox && infomaniakCheckbox.checked;
         const responsesApiNow = responsesApiCheckbox && responsesApiCheckbox.checked;
 
-        // Infomaniak fields (including prompt)
+        // Show/hide Infomaniak fields (including prompt)
         infomaniakFields.forEach(f => { if (f) f.style.display = infomaniakNow ? '' : 'none'; });
 
         // Show/hide Responses API prompt group
@@ -95,6 +103,13 @@ document.addEventListener("DOMContentLoaded", function () {
         if (articleUrlsGroup) {
             articleUrlsGroup.style.display = (infomaniakNow || responsesApiNow) ? '' : 'none';
         }
+
+        // When Infomaniak is turned ON, fetch Product IDs and Models if API key exists
+        if (e && e.type === 'change' && e.target === infomaniakCheckbox && infomaniakCheckbox.checked) {
+            if (infomaniakApiKeyInput && infomaniakApiKeyInput.value) {
+                fetchAndPopulateProductIds(infomaniakApiKeyInput.value);
+            }
+        }
     }
 
     if (infomaniakCheckbox) {
@@ -105,38 +120,69 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     // Initial state
     toggleApiFields();
-    // --- END Infomaniak/Responses API UI logic ---
-    // Hide/show Article URLs textarea based on Responses API checkbox
-    function toggleResponsesApiFields() {
-        if (infomaniakCheckbox && infomaniakCheckbox.checked) {
-            articleUrlsGroup.style.display = '';
-            responsesApiPromptGroup.style.display = 'none';
-        } else if (responsesApiCheckbox && responsesApiCheckbox.checked) {
-            articleUrlsGroup.style.display = '';
-            responsesApiPromptGroup.style.display = '';
-        } else {
-            articleUrlsGroup.style.display = 'none';
-            responsesApiPromptGroup.style.display = 'none';
-        }
-    }
-    if (responsesApiCheckbox && articleUrlsGroup && responsesApiPromptGroup) {
-        responsesApiCheckbox.addEventListener('change', toggleResponsesApiFields);
-        toggleResponsesApiFields(); // Set initial state
-    }
-    // --- BEGIN Infomaniak Models Fetch ---
-    const infomaniakApiKeyInput = document.querySelector("input[name='infomaniak_api_key']");
-    const infomaniakProductIdSelect = document.getElementById("infomaniak_product_id_select");
-    const infomaniakModelSelect = document.getElementById("infomaniak_model");
+
+    // ===================================================================
+    // Infomaniak Product IDs Fetch
+    // ===================================================================
     const savedInfomaniakModel = infomaniakModelSelect ? infomaniakModelSelect.dataset.savedModel : '';
 
+    function fetchAndPopulateProductIds(apiKey) {
+        if (!apiKey || !infomaniakProductIdSelect) return;
+        
+        infomaniakProductIdSelect.innerHTML = '<option value="">Fetching your Product IDs...</option>';
+        
+        fetch("/freescoutgpt/get-infomaniak-product-ids", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content,
+            },
+            body: JSON.stringify({ infomaniak_api_key: apiKey }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            infomaniakProductIdSelect.innerHTML = '<option value="">Select a Product ID</option>';
+            if (Array.isArray(data.data) && data.data.length > 0) {
+                data.data.forEach((pid) => {
+                    const option = document.createElement("option");
+                    option.value = pid;
+                    option.textContent = pid;
+                    if (infomaniakProductIdSelect.dataset.savedProductId && pid == infomaniakProductIdSelect.dataset.savedProductId) {
+                        option.selected = true;
+                    }
+                    infomaniakProductIdSelect.appendChild(option);
+                });
+                // If no saved value, select the first
+                if (!infomaniakProductIdSelect.value || infomaniakProductIdSelect.value === "") {
+                    infomaniakProductIdSelect.selectedIndex = 1; // 0 is placeholder
+                }
+                // Fetch models for the selected Product ID
+                if (infomaniakProductIdSelect.value) {
+                    fetchInfomaniakModels(apiKey, infomaniakProductIdSelect.value);
+                }
+            } else {
+                infomaniakProductIdSelect.innerHTML = '<option value="">No Product IDs found</option>';
+            }
+        })
+        .catch(error => {
+            infomaniakProductIdSelect.innerHTML = '<option value="">Error fetching Product IDs</option>';
+            console.error("Error fetching Infomaniak Product IDs:", error);
+        });
+    }
+
+    // ===================================================================
+    // Infomaniak Models Fetch
+    // ===================================================================
     function fetchInfomaniakModels(apiKey, productId) {
         if (!apiKey || !productId || !infomaniakModelSelect) return;
+        
         infomaniakModelSelect.innerHTML = '<option value="">Fetching your Infomaniak models...</option>';
+        
         fetch("/freescoutgpt/infomaniak-models", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name=\"csrf-token\"]').content,
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content,
             },
             body: JSON.stringify({ infomaniak_api_key: apiKey, infomaniak_product_id: productId }),
         })
@@ -162,130 +208,30 @@ document.addEventListener("DOMContentLoaded", function () {
             console.error("Error fetching Infomaniak models:", error);
         });
     }
-    if (infomaniakApiKeyInput && infomaniakProductIdSelect && infomaniakApiKeyInput.value && infomaniakProductIdSelect.value) {
-        fetchInfomaniakModels(infomaniakApiKeyInput.value, infomaniakProductIdSelect.value);
-    }
-    if (infomaniakApiKeyInput && infomaniakProductIdSelect) {
-        infomaniakApiKeyInput.addEventListener("blur", function () {
-            fetchInfomaniakModels(infomaniakApiKeyInput.value, infomaniakProductIdSelect.value);
-        });
-        infomaniakProductIdSelect.addEventListener("change", function () {
-            fetchInfomaniakModels(infomaniakApiKeyInput.value, infomaniakProductIdSelect.value);
-        });
-    }
-    // --- END Infomaniak Models Fetch ---
-    // --- BEGIN Infomaniak Product ID Fetch ---
-    // Use different variable names to avoid redeclaration
-    const infomaniakApiKeyInput2 = document.querySelector("input[name='infomaniak_api_key']");
-    const infomaniakProductIdInput2 = document.querySelector("input[name='infomaniak_product_id']");
-    function fetchInfomaniakProductIds(apiKey) {
-        if (!apiKey || !infomaniakProductIdInput2) return;
-        // If input is a select, clear options
-        if (infomaniakProductIdInput2.tagName === 'SELECT') {
-            infomaniakProductIdInput2.innerHTML = '';
-        }
-        fetch("/freescoutgpt/get-infomaniak-product-ids", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name=\"csrf-token\"]').content,
-            },
-            body: JSON.stringify({ infomaniak_api_key: apiKey }),
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (Array.isArray(data.data) && data.data.length > 0) {
-                if (infomaniakProductIdInput2.tagName === 'SELECT') {
-                    infomaniakProductIdInput2.innerHTML = '<option value="">Select a Product ID</option>';
-                    data.data.forEach(pid => {
-                        const option = document.createElement("option");
-                        option.value = pid;
-                        option.textContent = pid;
-                        if (pid == infomaniakProductIdInput2.value) option.selected = true;
-                        infomaniakProductIdInput2.appendChild(option);
-                    });
-                } else {
-                    infomaniakProductIdInput2.value = data.data[0];
-                }
-            } else {
-                if (infomaniakProductIdInput2.tagName === 'SELECT') {
-                    infomaniakProductIdInput2.innerHTML = '<option value="">No Product IDs found</option>';
-                }
-            }
-        })
-        .catch(error => {
-            if (infomaniakProductIdInput2.tagName === 'SELECT') {
-                infomaniakProductIdInput2.innerHTML = '<option value="">Error fetching Product IDs</option>';
-            }
-            console.error("Error fetching Infomaniak Product IDs:", error);
-        });
-    }
-    if (infomaniakApiKeyInput2) {
-        infomaniakApiKeyInput2.addEventListener("blur", function () {
-            fetchInfomaniakProductIds(infomaniakApiKeyInput2.value);
-        });
-    }
-    // --- END Infomaniak Product ID Fetch ---
-    // --- BEGIN Infomaniak Product ID Select Logic ---
-    const infomaniakApiKeyInput3 = document.querySelector("input[name='infomaniak_api_key']");
-    if (infomaniakProductIdSelect) {
-        function fetchAndPopulateProductIds(apiKey) {
-            if (!apiKey) return;
-            infomaniakProductIdSelect.innerHTML = '<option value="">Fetching your Product IDs...</option>';
-            fetch("/freescoutgpt/get-infomaniak-product-ids", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": document.querySelector('meta[name=\"csrf-token\"]').content,
-                },
-                body: JSON.stringify({ infomaniak_api_key: apiKey }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                infomaniakProductIdSelect.innerHTML = '<option value="">Select a Product ID</option>';
-                if (Array.isArray(data.data) && data.data.length > 0) {
-                    data.data.forEach((pid, idx) => {
-                        const option = document.createElement("option");
-                        option.value = pid;
-                        option.textContent = pid;
-                        if (infomaniakProductIdSelect.dataset.savedProductId && pid == infomaniakProductIdSelect.dataset.savedProductId) {
-                            option.selected = true;
-                        }
-                        infomaniakProductIdSelect.appendChild(option);
-                    });
-                    // If no saved value, select the first and trigger model fetch
-                    if (!infomaniakProductIdSelect.value || infomaniakProductIdSelect.value === "") {
-                        infomaniakProductIdSelect.selectedIndex = 1; // 0 is placeholder
-                    }
-                    // Always fetch models for the selected Product ID
-                    if (infomaniakApiKeyInput3 && infomaniakProductIdSelect.value) {
-                        fetchInfomaniakModels(infomaniakApiKeyInput3.value, infomaniakProductIdSelect.value);
-                    }
-                } else {
-                    infomaniakProductIdSelect.innerHTML = '<option value="">No Product IDs found</option>';
-                }
-            })
-            .catch(error => {
-                infomaniakProductIdSelect.innerHTML = '<option value="">Error fetching Product IDs</option>';
-                console.error("Error fetching Infomaniak Product IDs:", error);
-            });
-        }
+
+    // ===================================================================
+    // Infomaniak Event Listeners
+    // ===================================================================
+    if (infomaniakApiKeyInput) {
         // On API key blur, fetch product IDs
-        if (infomaniakApiKeyInput3) {
-            infomaniakApiKeyInput3.addEventListener("blur", function () {
-                fetchAndPopulateProductIds(infomaniakApiKeyInput3.value);
-            });
-            // Initial fetch if value exists
-            if (infomaniakApiKeyInput3.value) {
-                fetchAndPopulateProductIds(infomaniakApiKeyInput3.value);
+        infomaniakApiKeyInput.addEventListener("blur", function () {
+            if (this.value && infomaniakCheckbox && infomaniakCheckbox.checked) {
+                fetchAndPopulateProductIds(this.value);
             }
+        });
+        
+        // Initial fetch if value exists and Infomaniak is enabled
+        if (infomaniakApiKeyInput.value && infomaniakCheckbox && infomaniakCheckbox.checked) {
+            fetchAndPopulateProductIds(infomaniakApiKeyInput.value);
         }
+    }
+
+    if (infomaniakProductIdSelect) {
         // On Product ID change, fetch models
         infomaniakProductIdSelect.addEventListener("change", function () {
-            if (infomaniakApiKeyInput3 && infomaniakProductIdSelect.value) {
-                fetchInfomaniakModels(infomaniakApiKeyInput3.value, infomaniakProductIdSelect.value);
+            if (infomaniakApiKeyInput && this.value) {
+                fetchInfomaniakModels(infomaniakApiKeyInput.value, this.value);
             }
         });
     }
-    // --- END Infomaniak Product ID Select Logic ---
 });

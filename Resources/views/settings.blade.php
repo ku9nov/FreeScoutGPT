@@ -152,7 +152,7 @@
                 <div class="form-group">
                     <label class="col-sm-4 control-label"><a href="https://developer.infomaniak.com/docs/api/get/1/ai" target="_blank">{{ __("Infomaniak Product ID") }}</a></label>
                     <div class="col-sm-8">
-                        <select name="infomaniak_product_id" class="form-control input-sized" id="infomaniak_product_id_select">
+                        <select name="infomaniak_product_id" class="form-control input-sized" id="infomaniak_product_id_select" data-saved-product-id="{{ old('infomaniak_product_id', $settings['infomaniak_product_id'] ?? '') }}">
                             <option value="">Fetching your Product IDs...</option>
                         </select>
                     </div>
