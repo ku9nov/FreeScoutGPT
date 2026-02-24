@@ -3,7 +3,7 @@
     "alias": "freescoutgpt",
     "description": "Module for requests to ChatGPT with support for multiple models. v1.0.31 fixes Infomaniak API integration issues.",
     "version": "1.0.31",
-    "detailsUrl": "https://github.com/presswizards/FreeScoutGPT",
+    "detailsUrl": "https://github.com/presswizards/FreeScoutGPT/tree/infomaniak",
     "img": "https://raw.githubusercontent.com/presswizards/FreeScoutGPT/refs/heads/infomaniak/infomaniak-logo.jpg",
     "author": "Press Wizards",
     "authorUrl": "https://presswizards.com/",
