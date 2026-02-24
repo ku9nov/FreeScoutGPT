@@ -19,6 +19,9 @@ This repository contains the FreeScout + OpenAI GPT Integration Module, which co
 > <a href="https://5starplugins.com/freescout-gpt-pro/" target="_blank"><strong>FreeScout GPT Pro Details and Screenshots</strong></a>
 
 
+## Infomaniak API Support
+- This infomaniak branch adds support for the Infomaniak Chat Completions API.
+
 ## Newest Responses API Features
 - Adds an option to use the newest OpenAI Responses API. According to OpenAI: "OpenAI’s new Responses API is built for creating powerful AI agents, going beyond the conversational scope of the Chat Completions API. It’s more capable and agent-oriented, making it ideal for complex, multi-step tasks."
 - Adds the ability to parse external knowledge base articles, and provide very specific answers based on those articles, and be able to reference and provide links to those articles, boosting the quality and raising the limits of comprehensiveness.

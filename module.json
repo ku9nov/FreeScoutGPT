@@ -1,8 +1,8 @@
 {
     "name": "FreeScoutGPT",
     "alias": "freescoutgpt",
-    "description": "Module for requests to ChatGPT with support for multiple models. v1.0.32: Fix gpt-5.1 responses api results, fix empty articles error in PHP 8.x",
-    "version": "1.0.32",
+    "description": "Module for requests to ChatGPT with support for multiple models. v1.0.33: Adds Infomaniak API support.",
+    "version": "1.0.33",
     "detailsUrl": "https://github.com/presswizards/FreeScoutGPT/blob/main/changelog.txt",
     "img": "https://raw.githubusercontent.com/presswizards/FreeScoutGPT/refs/heads/main/FreeScoutGPT-Logo.jpg",
     "author": "5 Star Plugins",
