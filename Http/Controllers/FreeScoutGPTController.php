@@ -470,13 +470,26 @@ class FreeScoutGPTController extends Controller
             'content' => $request->get('query')
         ]);
 
-        $response = $openaiClient->chatCompletions()->create(
-            new \Tectalic\OpenAi\Models\ChatCompletions\CreateRequest([
-                'model'  => $settings->model,
-                'messages' => $messages,
-                'max_output_tokens' => (integer) $settings->token_limit
-            ])
-        )->toModel();
+        try {
+            $response = $openaiClient->chatCompletions()->create(
+                new \Tectalic\OpenAi\Models\ChatCompletions\CreateRequest([
+                    'model'  => $settings->model,
+                    'messages' => $messages,
+                    'max_output_tokens' => (integer) $settings->token_limit
+                ])
+            )->toModel();
+        } catch (\Throwable $e) {
+            \Log::error('OpenAI generate request failed', [
+                'mailbox_id' => $request->get("mailbox_id"),
+                'model' => $settings->model,
+                'message' => $e->getMessage(),
+            ]);
+
+            return Response::json([
+                'error' => 'OpenAI request failed',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
 
         $thread = Thread::find($request->get('thread_id'));
         if ($thread->chatgpt === null) {
@@ -620,13 +633,26 @@ class FreeScoutGPTController extends Controller
             ],
         ];
 
-        $response = $openaiClient->chatCompletions()->create(
-            new \Tectalic\OpenAi\Models\ChatCompletions\CreateRequest([
-                'model'  => $settings->model,
-                'messages' => $messages,
-                'max_output_tokens' => (integer) $settings->token_limit
-            ])
-        )->toModel();
+        try {
+            $response = $openaiClient->chatCompletions()->create(
+                new \Tectalic\OpenAi\Models\ChatCompletions\CreateRequest([
+                    'model'  => $settings->model,
+                    'messages' => $messages,
+                    'max_output_tokens' => (integer) $settings->token_limit
+                ])
+            )->toModel();
+        } catch (\Throwable $e) {
+            \Log::error('OpenAI draft edit request failed', [
+                'mailbox_id' => $mailboxId,
+                'model' => $settings->model,
+                'message' => $e->getMessage(),
+            ]);
+
+            return Response::json([
+                'error' => 'OpenAI request failed',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
 
         return Response::json([
             'answer' => $response->choices[0]->message->content
