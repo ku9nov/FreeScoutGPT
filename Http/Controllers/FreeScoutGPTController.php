@@ -155,6 +155,106 @@ class FreeScoutGPTController extends Controller
         }
     }
 
+    /**
+     * Get available models from Infomaniak API
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAvailableInfomaniakModels(Request $request)
+    {
+        $apiKey = $request->input('infomaniak_api_key');
+        $productId = $request->input('infomaniak_product_id');
+
+        if (!$apiKey || !$productId) {
+            return response()->json(['error' => 'Infomaniak API key and Product ID are required'], 400);
+        }
+
+        $cacheKey = 'infomaniak_models_' . md5($apiKey . '_' . $productId);
+
+        // Check if models are cached
+        if (Cache::has($cacheKey)) {
+            return response()->json(['data' => Cache::get($cacheKey)]);
+        }
+
+        try {
+            $client = new \GuzzleHttp\Client();
+            $url = "https://api.infomaniak.com/1/ai/{$productId}/openai/models";
+            $response = $client->get($url, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Accept' => 'application/json',
+                ],
+            ]);
+
+            $models = json_decode($response->getBody(), true);
+            $filteredModels = $models['data'] ?? [];
+
+            // Filter out non-chat models (e.g., whisper, photomaker, flux, bge_multilingual_gemma2)
+            $nonChatModels = ['whisper', 'photomaker', 'flux', 'bge_multilingual_gemma2', 'mini_lm_l12_v2'];
+            $filteredModels = array_filter($filteredModels, function ($model) use ($nonChatModels) {
+                foreach ($nonChatModels as $nonChatModel) {
+                    if (isset($model['id']) && stripos($model['id'], $nonChatModel) !== false) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            // Optionally, sort alphabetically by 'id' if present
+            usort($filteredModels, function($a, $b) {
+                return strcmp($a['id'] ?? '', $b['id'] ?? '');
+            });
+
+            // Cache filtered models for 10 minutes
+            Cache::put($cacheKey, $filteredModels, now()->addMinutes(10));
+
+            return response()->json(['data' => $filteredModels]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get available Infomaniak Product IDs for the account
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAvailableInfomaniakProductIds(Request $request)
+    {
+        $apiKey = $request->input('infomaniak_api_key');
+        if (!$apiKey) {
+            return response()->json(['error' => 'Infomaniak API key is required'], 400);
+        }
+        $cacheKey = 'infomaniak_product_ids_' . md5($apiKey);
+        if (Cache::has($cacheKey)) {
+            return response()->json(['data' => Cache::get($cacheKey)]);
+        }
+        try {
+            $client = new \GuzzleHttp\Client();
+            $url = "https://api.infomaniak.com/1/ai";
+            $response = $client->get($url, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Accept' => 'application/json',
+                ],
+            ]);
+            $result = json_decode($response->getBody(), true);
+            $productIds = [];
+            if (!empty($result['data']) && is_array($result['data'])) {
+                foreach ($result['data'] as $item) {
+                    if (isset($item['product_id'])) {
+                        $productIds[] = $item['product_id'];
+                    }
+                }
+            }
+            // Cache for 10 minutes
+            Cache::put($cacheKey, $productIds, now()->addMinutes(10));
+            return response()->json(['data' => $productIds]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function generate(Request $request)
     {
         if (Auth::user() === null) return Response::json(["error" => "Unauthorized"], 401);
@@ -164,115 +264,33 @@ class FreeScoutGPTController extends Controller
             FILTER_VALIDATE_BOOLEAN,
             FILTER_NULL_ON_FAILURE
         ) === true;
-        
-        // If Responses API is enabled and is not an edit prompt ajax, use it instead of Chat Completions
+
+        // Get ajax system prompt, and use it below if set
         $ajax_cmd = $request->get("command");
-        if (!empty($settings->use_responses_api) && empty($ajax_cmd)) {
+        if (!empty($ajax_cmd)) {
+            $ajax_cmd = trim($ajax_cmd);
+            \Log::info('Using Reply Prompt Override: ' . $ajax_cmd);
+        }
+        
+        // If Responses API is enabled, use it instead of Chat Completions
+        if (!empty($settings->use_responses_api)) {
             $articleUrls = array_filter(array_map('trim', preg_split('/\r?\n/', $settings->article_urls ?? '')));
-            $articles = [];
-            $client = new \GuzzleHttp\Client(['timeout' => 20]);
-            foreach ($articleUrls as $url) {
-                try {
-                    $res = $client->get($url, [
-                        'headers' => [
-                            'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-                        ]
-                    ]);
-                    $body = (string) $res->getBody();
-
-                    $contentType = $res->getHeaderLine('Content-Type');
-                    $isText = preg_match('/\.txt$/i', $url) || stripos($contentType, 'text/plain') !== false;
-                    if ($isText) {
-                        $safeText = htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5);
-                        $body = '<!DOCTYPE html>
-                        <html><head><meta charset="UTF-8"></head>
-                        <body><pre>' . $safeText . '</pre></body></html>';
-                    }
-
-                    $text = '';
-                    $linkLines = [];
-                    libxml_use_internal_errors(true);
-                    $dom = new \DOMDocument();
-                    if ($dom->loadHTML($body)) {
-                        $xpath = new \DOMXPath($dom);
-                        // Extract only the content inside .kb-category-content and strip CSS
-                        // $nodes = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " kb-category-content ")]');
-                        $nodes = $xpath->query('/*');
-                        if ($nodes->length > 0) {
-                            foreach ($nodes as $node) {
-                                // Find all <a> tags and build "Link Text: URL" lines
-                                $aTags = $node->getElementsByTagName('a');
-                                $aList = [];
-                                foreach ($aTags as $a) {
-                                    $aList[] = $a;
-                                }
-                                foreach ($aList as $a) {
-                                    $linkText = trim($a->textContent);
-                                    $href = $a->getAttribute('href');
-                                    if ($linkText && $href) {
-                                        $replacement = $linkText . ': ' . $href . "\n";
-                                        $textNode = $dom->createTextNode($replacement);
-                                        $a->parentNode->replaceChild($textNode, $a);
-                                    }
-                                }
-                                // Get the remaining text content
-                                $innerHTML = '';
-                                foreach ($node->childNodes as $child) {
-                                    $innerHTML .= $dom->saveHTML($child);
-                                }
-                                // Remove <style> tags and CSS blocks
-                                $innerHTML = preg_replace('/<style[\s\S]*?<\/style>/i', '', $innerHTML);
-                                // Strip all HTML tags
-                                $text = trim(strip_tags($innerHTML));
-                            }
-                        }
-                    }
-                    libxml_clear_errors();
-                    // Combine links and text, links first, each on its own line
-                    $finalText = '';
-                    if (!empty($linkLines)) {
-                        $finalText .= implode("\n", $linkLines) . "\n\n";
-                    }
-                    $finalText .= $text;
-                    $articles[] = [
-                        'url' => $url,
-                        'text' => mb_substr($finalText, 0, 12000) // limit to 12k chars per article
-                    ];
-                } catch (\Exception $e) {
-                    $errorMsg = $e->getMessage();
-                    \Log::error('Error on Responses API Request: ' . $errorMsg ?? 'Error fetching or parsing the article.');
-                    $answerText = $errorMsg ?? 'Error fetching or parsing the article.';
-                    return Response::json([
-                        'query' => $userQuery ?? '',
-                        'answer' => $answerText
-                    ], 200);
-                }
+            $fetchResult = $this->fetchArticlesContext($articleUrls, $settings, $request, $skipClientData);
+            if (!empty($fetchResult['error'])) {
+                return Response::json([
+                    'query' => $fetchResult['userQuery'] ?? '',
+                    'answer' => $fetchResult['error']
+                ], 200);
             }
-            $context = "";
-            if ($settings->client_data_enabled && !$skipClientData) {
-                $customerName = $request->get("customer_name");
-                $customerEmail = $request->get("customer_email");
-                $conversationSubject = $request->get("conversation_subject");
-                $context .= "Conversation subject is $conversationSubject, customer name is $customerName, customer email is $customerEmail\n";
-            }
+            $context = $fetchResult['context'];
             $userQuery = $request->get('query');
-            $context .= "Customer query: $userQuery\n";
-            if (empty($articles)) {
-                $context .= "No articles could be fetched or parsed.\n";
-            } else {
-                $context .= "Articles:\n";
-                foreach ($articles as $i => $article) {
-                    $context .= "[Article #" . ($i + 1) . "] URL: " . $article['url'] . "\n";
-                    $context .= (is_string($article['text']) ? $article['text'] : '') . "\n\n";
-                }
-            }
 
             // Build prompt: use responses_api_prompt if set, otherwise use hardcoded default
-            $prompt = ($settings->start_message ? $settings->start_message . "\n\n" : "");
+            $prompt = (!empty($ajax_cmd) ? $ajax_cmd : $settings->start_message) . "\n\n";
             if (isset($settings->responses_api_prompt) && $settings->responses_api_prompt) {
                 $prompt .= $settings->responses_api_prompt . "\n\n";
             } else {
-                $prompt .= "If relevant given the customer's query, and the articles included, find the single article that best answers the user's question. Summarize the relevant part of that article as a support answer, and provide the article URL. If no article is relevant, reply with a concise best attempt to answer their concerns.";
+                $prompt .= __('If relevant given the customer\'s query, and the articles included, find the single article that best answers the user\'s question. Summarize the relevant part of that article as a support answer, and provide the article URL. If no article is relevant, reply with a concise best attempt to answer their concerns.\n\n');
             }
 
             // Use Guzzle to call OpenAI Responses API
@@ -337,6 +355,82 @@ class FreeScoutGPTController extends Controller
             ], 200);
         } // End of Non-Edit-Prompt & Responses API Call
 
+        // Infomaniak API: use if enabled, before OpenAI
+        if (!empty($settings->infomaniak_enabled)) {
+            \Log::info('Using Infomaniak API for answers');
+            $articleUrls = array_filter(array_map('trim', preg_split('/\r?\n/', $settings->article_urls)));
+            $fetchResult = $this->fetchArticlesContext($articleUrls, $settings, $request);
+            if (!empty($fetchResult['error'])) {
+                \Log::error('Infomaniak API Articles Error: ' . $fetchResult['error']);
+                return Response::json([
+                    'query' => $fetchResult['userQuery'] ?? '',
+                    'answer' => $fetchResult['error']
+                ], 200);
+            }
+            $context = $fetchResult['context'];
+            $apiKey = $settings->infomaniak_api_key;
+            $productId = $settings->infomaniak_product_id;
+            $model = $settings->infomaniak_model;
+            $tokenLimit = (int) $settings->token_limit;
+            $userQuery = $request->get('query');
+
+            $systemPrompt = (!empty($ajax_cmd) ? $ajax_cmd : $settings->start_message);
+            if (!empty($settings->infomaniak_api_prompt)) {
+                $systemPrompt .= "\n\n" . $settings->infomaniak_api_prompt;
+            } else {
+                $systemPrompt .= __('\n\nIf relevant given the customer\'s query, and the articles included, find the single article that best answers the user\'s question. Summarize the relevant part of that article as a support answer, and provide the article URL. If no article is relevant, reply with a concise best attempt to answer their concerns.');
+            }
+            $systemPrompt .= "\n\n" . $context;
+
+            \Log::info('Infomaniak API system prompt: ' . $systemPrompt);
+
+            $messages = [
+                [
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $userQuery
+                ]
+            ];
+
+            $payload = [
+                'model' => $model,
+                'messages' => $messages,
+                'max_tokens' => $tokenLimit
+            ];
+            try {
+                $client = new \GuzzleHttp\Client(['timeout' => 30]);
+                $response = $client->post("https://api.infomaniak.com/1/ai/{$productId}/openai/chat/completions", [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $apiKey,
+                        'Content-Type' => 'application/json',
+                    ],
+                    'body' => json_encode($payload),
+                ]);
+                $data = json_decode($response->getBody(), true);
+                \Log::info('Infomaniak API Call Response ' . json_encode($data));
+                // This may need to be more robust like Responses API checks above?
+                $answerText = $data['choices'][0]['message']['content'] ?? '';
+            } catch (\Exception $e) {
+                \Log::error('Infomaniak API Response Error: ' . $e->getMessage());
+                $answerText = $e->getMessage();
+            }
+            $thread = Thread::find($request->get('thread_id'));
+            $answers = $thread->chatgpt ? json_decode($thread->chatgpt, true) : [];
+            if ($answers === null) $answers = [];
+            $answers[] = $answerText;
+            $thread->chatgpt = json_encode($answers, JSON_UNESCAPED_UNICODE);
+            $thread->save();
+            \Log::info('Infomaniak API Generate Answer: ' . $answerText);
+            return Response::json([
+                'query' => $userQuery,
+                'answer' => $answerText
+            ], 200);
+        }
+
+        // OpenAI Chat Completions API
         $openaiClient = \Tectalic\OpenAi\Manager::build(new \GuzzleHttp\Client(
             [
                 'timeout' => config('app.curl_timeout'),
@@ -364,10 +458,9 @@ class FreeScoutGPTController extends Controller
             $conversationSubject = $request->get("conversation_subject");
             array_push($messages, [
                 'role' => $req_role,
-                'content' => __('Conversation subject is ":subject", customer name is ":name", customer email is ":email"', [
+                'content' => __('Conversation subject is: ":subject"\nCustomer name is: ":name"\n', [
                     'subject' => $conversationSubject,
-                    'name' => $customerName,
-                    'email' => $customerEmail
+                    'name' => $customerName
                 ])
             ]);
         }
@@ -463,6 +556,11 @@ class FreeScoutGPTController extends Controller
                 'use_responses_api' => isset($_POST['use_responses_api']),
                 'article_urls' => $request->get('article_urls'),
                 'responses_api_prompt' => $request->get('responses_api_prompt'),
+                'infomaniak_enabled' => isset($_POST['infomaniak_enabled']),
+                'infomaniak_api_key' => $request->get('infomaniak_api_key'),
+                'infomaniak_product_id' => $request->get('infomaniak_product_id'),
+                'infomaniak_model' => $request->get('infomaniak_model'),
+                'infomaniak_api_prompt' => $request->get('infomaniak_api_prompt'),
             ]
         );
         \Session::flash('flash_success_floating', __('Settings updated'));
@@ -542,5 +640,132 @@ class FreeScoutGPTController extends Controller
             return Response::json(['enabled' => false], 200);
         }
         return Response::json(['enabled' => $settings['enabled']], 200);
+    }
+
+    /**
+     * Fetch and parse articles from URLs for context.
+     * @param array $articleUrls
+     * @return array [ 'context' => string, 'articles' => array ]
+     */
+    protected function fetchArticlesContext(array $articleUrls, $settings, $request, $skipClientData = false)
+    {
+        $articles = [];
+        $client = new \GuzzleHttp\Client(['timeout' => 20]);
+        $userQuery = $request->get('query');
+        foreach ($articleUrls as $url) {
+            try {
+                $res = $client->get($url, [
+                    'headers' => [
+                        'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                    ]
+                ]);
+                $body = (string) $res->getBody();
+                $contentType = $res->getHeaderLine('Content-Type');
+                $isText = preg_match('/\.txt$/i', $url) || stripos($contentType, 'text/plain') !== false;
+                if ($isText) {
+                    $safeText = htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5);
+                    $body = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><pre>' . $safeText . '</pre></body></html>';
+                }
+                // Use the new parseArticleHtml function for parsing
+                $text = $this->parseArticleHtml($body);
+                $articles[] = [
+                    'url' => $url,
+                    'text' => mb_substr($text, 0, 12000)
+                ];
+            } catch (\Exception $e) {
+                $errorMsg = $e->getMessage();
+                \Log::error('Error on Article Fetch: ' . $errorMsg ?? 'Error fetching or parsing the article.');
+                return [
+                    'context' => '',
+                    'articles' => [],
+                    'error' => $errorMsg ?? 'Error fetching or parsing the article.',
+                    'userQuery' => $userQuery
+                ];
+            }
+        }
+        $context = "";
+        if ($settings->client_data_enabled && !$skipClientData) {
+            $customerName = $request->get("customer_name");
+            $customerEmail = $request->get("customer_email");
+            $conversationSubject = $request->get("conversation_subject");
+            $context .= __("Conversation subject is: :subject\nCustomer name is: :name\n", [
+                'subject' => $conversationSubject,
+                'name' => $customerName
+            ]) . "\n";
+        }
+        $context .= __('Customer query: :query', ['query' => $userQuery]) . "\n";
+        if (empty($articles)) {
+            $context .= __('No articles were included.') . "\n";
+        } else {
+            $context .= __('Articles to use for context:') . "\n";
+            foreach ($articles as $i => $article) {
+                $context .= __('[Article #:num] URL: :url', ['num' => ($i + 1), 'url' => $article['url']]) . "\n";
+                $context .= (is_string($article['text']) ? $article['text'] : '') . "\n\n";
+            }
+        }
+        return [
+            'context' => $context,
+            'articles' => $articles
+        ];
+    }
+    private function parseArticleHtml($html)
+    {
+        if (empty($html)) {
+            return '';
+        }
+
+        // Normalize: ensure UTF-8 and decode any entities
+        $html = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        libxml_use_internal_errors(true);
+        $dom = new \DOMDocument();
+
+        // Force UTF-8 parsing
+        if ($dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_NOERROR | LIBXML_NOWARNING)) {
+            $xpath = new \DOMXPath($dom);
+            $nodes = $xpath->query('/*');
+            $text = '';
+
+            foreach ($nodes as $node) {
+                // Replace <a> tags with "text: href"
+                $aTags = $node->getElementsByTagName('a');
+                foreach (iterator_to_array($aTags) as $a) {
+                    $linkText = trim($a->textContent);
+                    $href = $a->getAttribute('href');
+                    if ($linkText && $href) {
+                        $replacement = $linkText . ': ' . $href . "\n";
+                        $a->parentNode->replaceChild($dom->createTextNode($replacement), $a);
+                    }
+                }
+
+                // Collect inner content
+                $innerHTML = '';
+                foreach ($node->childNodes as $child) {
+                    $innerHTML .= $dom->saveHTML($child);
+                }
+
+                // Strip unwanted elements
+                $innerHTML = preg_replace('/<style[\s\S]*?<\/style>/i', '', $innerHTML);
+                $innerHTML = preg_replace('/<script[\s\S]*?<\/script>/i', '', $innerHTML);
+                $plainText = strip_tags($innerHTML);
+
+                // Normalize spacing and entities
+                $plainText = html_entity_decode($plainText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $plainText = str_replace("\xc2\xa0", ' ', $plainText); // non-breaking space
+                $plainText = preg_replace('/[ \t]+/', ' ', $plainText);
+                // Remove space(s) before newlines
+                $plainText = preg_replace('/ +\n/', "\n", $plainText);
+                // Collapse 2+ newlines to 1
+                $plainText = preg_replace('/[\r\n]{2,}/', "\n", $plainText);
+                $plainText = preg_replace('/[\n]{2,}/', "\n", $plainText);
+                $plainText = preg_replace('/^[\s\n\r]+|[\s\n\r]+$/u', '', $plainText);
+                $text .= trim($plainText) . "";
+            }
+
+            libxml_clear_errors();
+            return trim($text);
+        }
+
+        return '';
     }
 }
